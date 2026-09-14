@@ -85,6 +85,15 @@ nav{position:sticky;top:0;z-index:50;background:rgba(43,29,24,.94);
 .cd-lab{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--taupe);margin-top:10px}
 @media(max-width:480px){.cd-lab{font-size:8.5px;letter-spacing:.14em}}
 
+.cd-state:not(.on){display:none}
+.cd-state.on{animation:cdIn 1s cubic-bezier(.22,.8,.3,1) both}
+@keyframes cdIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.cd-hero{font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;font-style:italic;
+  font-size:clamp(46px,10vw,86px);line-height:1.05;color:var(--cream);letter-spacing:.01em}
+.cd-sub{margin-top:18px;font-size:14px;color:var(--cream-dim);line-height:1.8}
+.cd-sub strong{color:var(--cream);font-weight:400}
+@media(prefers-reduced-motion:reduce){.cd-state.on{animation:none}}
+
 /* ---------- SECTIONS ---------- */
 section{scroll-margin-top:96px}
 .sec{padding:80px 0}
@@ -243,12 +252,24 @@ footer{border-top:1px solid var(--line);padding:56px 0 48px;text-align:center}
 
 <section class="countdown-sec">
   <div class="wrap">
-    <div class="eyebrow">Faltan</div>
-    <div class="countdown">
+    <div class="eyebrow cd-state on" id="cdLabel">Faltan</div>
+    <div class="countdown cd-state on" id="cdGrid">
       <div class="cd-item"><div class="cd-num" id="cd-d">--</div><div class="cd-lab">D&iacute;as</div></div>
       <div class="cd-item"><div class="cd-num" id="cd-h">--</div><div class="cd-lab">Horas</div></div>
       <div class="cd-item"><div class="cd-num" id="cd-m">--</div><div class="cd-lab">Minutos</div></div>
       <div class="cd-item"><div class="cd-num" id="cd-s">--</div><div class="cd-lab">Segundos</div></div>
+    </div>
+
+    <div class="cd-state" id="cdToday">
+      <div class="eyebrow">1 de octubre de 2026</div>
+      <div class="cd-hero">&iexcl;Es hoy!</div>
+      <p class="cd-sub">Nos vemos a las <strong>16:30</strong> en la Parroquia San Benito Abad.<br>Gracias por acompa&ntilde;arnos.</p>
+    </div>
+
+    <div class="cd-state" id="cdAfter">
+      <div class="eyebrow">01 &middot; 10 &middot; 2026</div>
+      <div class="cd-hero">Gracias</div>
+      <p class="cd-sub">Por haber sido parte de nuestro d&iacute;a.<br>No se olviden de subir sus fotos y videos.</p>
     </div>
   </div>
 </section>
@@ -437,19 +458,48 @@ footer{border-top:1px solid var(--line);padding:56px 0 48px;text-align:center}
   var RSVP_EMAIL = "gnoguera@coetcentdeu.com";
   var TARGET = new Date(2026, 9, 1, 16, 30, 0).getTime();
 
+  // Hasta cuando se muestra el mensaje de "Es hoy": 1/10/2026 a las 23:59:59
+  var END_OF_DAY = new Date(2026, 9, 1, 23, 59, 59).getTime();
+
   var elD=document.getElementById('cd-d'),elH=document.getElementById('cd-h'),
       elM=document.getElementById('cd-m'),elS=document.getElementById('cd-s');
+  var cdLabel=document.getElementById('cdLabel'), cdGrid=document.getElementById('cdGrid'),
+      cdToday=document.getElementById('cdToday'), cdAfter=document.getElementById('cdAfter');
+  var timer=null, current='';
+
   function pad(n){return n<10?'0'+n:''+n;}
-  function tick(){
-    var diff = TARGET - Date.now();
-    if(diff<=0){elD.textContent='00';elH.textContent='00';elM.textContent='00';elS.textContent='00';return;}
-    var s=Math.floor(diff/1000);
-    elD.textContent=pad(Math.floor(s/86400));
-    elH.textContent=pad(Math.floor(s%86400/3600));
-    elM.textContent=pad(Math.floor(s%3600/60));
-    elS.textContent=pad(s%60);
+
+  function setState(name){
+    if(current===name) return;
+    current=name;
+    [cdLabel,cdGrid,cdToday,cdAfter].forEach(function(el){ el.classList.remove('on'); });
+    if(name==='count'){ cdLabel.classList.add('on'); cdGrid.classList.add('on'); }
+    else if(name==='today'){ cdToday.classList.add('on'); }
+    else { cdAfter.classList.add('on'); }
   }
-  tick(); setInterval(tick,1000);
+
+  function tick(){
+    var now  = Date.now();
+    var diff = TARGET - now;
+
+    if(diff>0){
+      setState('count');
+      var s=Math.floor(diff/1000);
+      elD.textContent=pad(Math.floor(s/86400));
+      elH.textContent=pad(Math.floor(s%86400/3600));
+      elM.textContent=pad(Math.floor(s%3600/60));
+      elS.textContent=pad(s%60);
+      return;
+    }
+
+    // La cuenta llego a cero
+    setState(now<=END_OF_DAY ? 'today' : 'after');
+
+    // Ya no hace falta refrescar cada segundo: basta con revisar por minuto
+    if(timer){ clearInterval(timer); timer=null; setInterval(tick, 60000); }
+  }
+
+  tick(); timer=setInterval(tick,1000);
 
   function fallbackCopy(t){
     var ta=document.createElement('textarea');
